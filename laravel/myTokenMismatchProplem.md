@@ -36,60 +36,60 @@ And another ajax code of transfering data:
 
 ## *2. The Error* ##
   I use the Laravel 5.1 framework to build an application to manage my IP resources. While I get to authentication process, I encount the annoying TokenMismatch Exception. Below is the Exception:
-![](http://192.168.157.131/pic/loginwindow.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/loginwindow.JPG?raw=true)
   While clicking  the login button, the exception appears.
-![](http://192.168.157.131/pic/tokenMismatch.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/tokenMismatch.JPG?raw=true)
 
 
 ## *3. The Environment* ##
   To help others locate their problem, following is my Server configuration.
-![](http://192.168.157.131/pic/apacheConfig1.JPG)
-![](http://192.168.157.131/pic/apacheConfig2.JPG)
-![](http://192.168.157.131/pic/apacheConfig3.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/apacheConfig1.JPG?raw=true)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/apacheConfig2.JPG?raw=true)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/apacheConfig3.JPG?raw=true)
 
 
 ## *4. The Analysis* ##
   I directly go the VerifyCsrfToken.php to check what is happening there. I set a breakpoint and send a request from my browser.
 
-![](http://192.168.157.131/pic/tokenCatch.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/tokenCatch.JPG?raw=true)
 
   I watch the token transfered from request and session, and their are really not equated.
 
-![](http://192.168.157.131/pic/tokenCompare.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/tokenCompare.JPG?raw=true)
 
   The token of html is correctedly sent to the request.
 
-![](http://192.168.157.131/pic/tokenFromHtml.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/tokenFromHtml.JPG?raw=true)
 
 **So the problem is actually caused by the session! We know that Laravel will start a new session if there is no cookie received. Here is how it's done.**
-![](http://192.168.157.131/pic/startSession.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/startSession.JPG?raw=true)
 
-![](http://192.168.157.131/pic/getSession.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/getSession.JPG?raw=true)
 
 We can know from that the session tries to get cookies from request, while the cookie is sent from browser. The Server will jot down session information including CSRF token into files or database based on you drivers.
 
-![](http://192.168.157.131/pic/sessionLog.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/sessionLog.JPG?raw=true)
 
 But my browser doesn't have any cookies to send:
-![](http://192.168.157.131/pic/siteCookie.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/siteCookie.JPG?raw=true)
 
 If Laravel doesn't get cookie from request, it will generate a new session ID  and new CSRF token within next steps. Laravel addes these new cookies and headers to the response of the request, then send them to browser. But now the value of ($request->session()->token()) is false due to there is no value and new session has not been started yet.
-![](http://192.168.157.131/pic/tokenCompare.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/tokenCompare.JPG?raw=true)
 
 **Why doesn't the Server generate cookie and send to browser within precedent requests?**
 
 So we have to trace how the Laravel generates and sends cookie. The laravel generates response class within following processing request and then sends the response. We can know that from index.php.
-![](http://192.168.157.131/pic/sendResponse.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/sendResponse.JPG?raw=true)
 
-![](http://192.168.157.131/pic/send.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/send.JPG?raw=true)
 
-![](http://192.168.157.131/pic/sendHeader.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/sendHeader.JPG?raw=true)
 
 **The result is that the Headers have already been sent, but I don't send any headers manually.**
-![](http://192.168.157.131/pic/HeadersSend.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/HeadersSend.JPG?raw=true)
 
 Since the information shows the file  /var/www/html/laravel/storage/framework/views/897f5b2e7a86661b6f3be95ce19b662e has already done those creepy things, I checked the file. It is a compiled view file of outputing my login HTML code. It donesn't do anything like those. 
-![](http://192.168.157.131/pic/compiledView.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/compiledView.JPG?raw=true)
 
 I really spend much times digging why the view file will send headers without any code like  sending headers?
 I google the reason online and the two sites enlights me up.
@@ -100,41 +100,41 @@ In the HTTP protocol a server response consists of a group of headers followed b
 
 **So I have to dig How the view was processed?  Another interesting thing is that the content of the response is empty. If normal, the content will be HTML code string of view. If it is empty, why the site showes normally?**
 
-![](http://192.168.157.131/pic/sentContent.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/sentContent.JPG?raw=true)
 
 After a long track of the process of response and view, we finally get to the core code of dealing view.
 
-![](http://192.168.157.131/pic/setContent.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/setContent.JPG?raw=true)
 
-![](http://192.168.157.131/pic/renderContent.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/renderContent.JPG?raw=true)
 
-![](http://192.168.157.131/pic/evaluatePath.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/evaluatePath.JPG?raw=true)
 
 We can find "include $__path" in the view rendering. while the variable $__path is compiled view of current site.
-![](http://192.168.157.131/pic/compiledView.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/compiledView.JPG?raw=true)
 It contains another view rendering and this process will go agian. It is a iterated process. In Laravel we can extend parent view from child view. So the process is that we render child view first, then the parent view, and return HTML code in last step of render. 
 
 **How can we return HTML code string in the iterated process? **
 
 From the function evaluatePath the answer is output_buffering, so the ob_start, ob_get_clean, ob_get_level functions.  And these functions are evil we know that. So I check if these functions have been correctedly executed. So I add two lines to check.
 
-![](http://192.168.157.131/pic/checkOb.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/checkOb.JPG?raw=true)
 
 The first level of iteration:
 
-![](http://192.168.157.131/pic/firstIteration.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/firstIteration.JPG?raw=true)
 
 The second level of iteration:
 
-![](http://192.168.157.131/pic/secondIteration.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/secondIteration.JPG?raw=true)
 
 The result of iteration:
 
-![](http://192.168.157.131/pic/obResult.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/obResult.JPG?raw=true)
 
 **We can see the $contents of result returned is empty. And the output_buffering level is different before "include $__path" and after "include $__path". In the first level of iteration, the $obOutLevel is 0 before the code  "return ltrim(ob_get_clean())" is executed.  **
 I remember there is a <?php echo ... ?> in the child compiled view file.
-![](http://192.168.157.131/pic/compiledView.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/compiledView.JPG?raw=true)
 
 **So it occurs to me this "echo" code  in the child compiled view file is executed on the Output Buffering Level 0. The answer is clearly that content of echo in output buffering 0 is directly sent to browser. So There is nothing in the output buffering. If the contents of echo-<html> ... </html>-is sent to browser precedingly,  How can the headers be sent back to broswer in the following steps of sending response ?  That is why "the Headers have already been sent" error has gotten happened and the site shows fine. Then it triggers a series of things, cookie not sent, token mismatched.**
 
@@ -183,9 +183,9 @@ Here is my solution Code:
     }
 
 Then It works well. The token mismatch exception doesn't appear anymore.
-![](http://192.168.157.131/pic/success1.JPG)
-![](http://192.168.157.131/pic/success2.JPG)
-![](http://192.168.157.131/pic/success3.JPG)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/success1.JPG?raw=true)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/success2.JPG?raw=true)
+![](https://github.com/wyl206/Web/blob/master/laravel/pic/success3.JPG?raw=true)
 
 ## *6. The Author* ##
 
